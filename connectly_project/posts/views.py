@@ -13,6 +13,14 @@ from rest_framework.permissions import IsAuthenticated
 from .permissions import IsPostAuthor, IsCommentAuthor
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.authtoken.models import Token
+from .singletons.logger_singleton import LoggerSingleton
+from .factories.post_factory import PostFactory
+
+logger = LoggerSingleton().get_logger()
+
+logger.info("API initialized successfully.")
+
+
 
 def list_users(request):
     try:
@@ -123,14 +131,23 @@ def login_user(request):
 
             if user is not None:
                 token, _ = Token.objects.get_or_create(user=user)
+                
+                logger.info(f"User logged in: {user.username}") #logger
+                  
                 return JsonResponse({
                     "message": "Authentication successful!",
                     "token": token.key
                 })
             else:
+                
+                logger.warning(f"Failed login attempt for username: {data.get('username')}")
+                
                 return JsonResponse({'error': 'Invalid credentials'}, status=401)
 
         except Exception as e:
+            
+            logger.error(f"Login error: {str(e)}")
+            
             return JsonResponse({'error': str(e)}, status=400)
 
 
@@ -150,11 +167,27 @@ class PostListCreate(APIView):
         return Response(serializer.data)
 
     def post(self, request):
-        serializer = PostSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(author=request.user)  
+        try:
+            post = PostFactory.create_post(
+                author=request.user,
+                content=request.data.get("content")
+            )
+
+            serializer = PostSerializer(post)
+
+            logger.info(f"Post created by {request.user.username}")
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except ValueError as e:
+            logger.warning(
+                f"Post creation failed for user {request.user.username}: {str(e)}"
+            )
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
 
 
 class CommentListCreate(APIView):
@@ -208,6 +241,9 @@ class PostDetail(APIView):
         post = self.get_object(pk)
         self.check_object_permissions(request, post)
         post.delete()
+        
+        logger.info(f"Post deleted by {request.user.username} (post_id={pk})")
+         
         return Response(
             {"message": "Post deleted successfully"},
             status=status.HTTP_200_OK
