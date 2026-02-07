@@ -10,8 +10,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .permissions import IsPostAuthor
+from .permissions import IsPostAuthor, IsCommentAuthor
 from rest_framework.authentication import TokenAuthentication
+from rest_framework.authtoken.models import Token
 
 def list_users(request):
     try:
@@ -107,24 +108,31 @@ def create_post(request):
         
 
   #login      
+
+
 @csrf_exempt
 def login_user(request):
-        if request.method == 'POST':
-            try:
-                data = json.loads(request.body)
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
 
-                user = authenticate(
-                    username=data['username'],
-                    password=data['password']
-                )
+            user = authenticate(
+                username=data['username'],
+                password=data['password']
+            )
 
-                if user is not None:
-                    return JsonResponse({'message': 'Authentication successful!'})
-                else:
-                    return JsonResponse({'error': 'Invalid credentials'}, status=401)
+            if user is not None:
+                token, _ = Token.objects.get_or_create(user=user)
+                return JsonResponse({
+                    "message": "Authentication successful!",
+                    "token": token.key
+                })
+            else:
+                return JsonResponse({'error': 'Invalid credentials'}, status=401)
 
-            except Exception as e:
-                return JsonResponse({'error': str(e)}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
 
 
 #DataHandling
@@ -133,42 +141,37 @@ def login_user(request):
 
 
 class PostListCreate(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         posts = Post.objects.all()
         serializer = PostSerializer(posts, many=True)
         return Response(serializer.data)
 
-
     def post(self, request):
         serializer = PostSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(author=request.user)  
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CommentListCreate(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
-        comments = Comment.objects.all()
+        comments = Comment.objects.filter(post__author=request.user)
         serializer = CommentSerializer(comments, many=True)
         return Response(serializer.data)
-
 
     def post(self, request):
         serializer = CommentSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(author=request.user)  
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class PostDetailView(APIView):
-    permission_classes = [IsAuthenticated, IsPostAuthor]
-
-
-    def get(self, request, pk):
-        post = Post.objects.get(pk=pk)
-        self.check_object_permissions(request, post)
-        return Response({"content": post.content})
 
 
 class ProtectedView(APIView):
@@ -178,7 +181,9 @@ class ProtectedView(APIView):
     def get(self, request):
         return Response({"message": "Authenticated!"})
     
+
 class PostDetail(APIView):
+    authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated, IsPostAuthor]
 
     def get_object(self, pk):
@@ -193,7 +198,7 @@ class PostDetail(APIView):
     def put(self, request, pk):
         post = self.get_object(pk)
         self.check_object_permissions(request, post)
-        serializer = PostSerializer(post, data=request.data)
+        serializer = PostSerializer(post, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -205,5 +210,36 @@ class PostDetail(APIView):
         post.delete()
         return Response(
             {"message": "Post deleted successfully"},
-            status=status.HTTP_204_NO_CONTENT
+            status=status.HTTP_200_OK
+        )
+
+class CommentDetail(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, IsCommentAuthor]
+
+    def get_object(self, pk):
+        return Comment.objects.get(pk=pk)
+
+    def get(self, request, pk):
+        comment = self.get_object(pk)
+        self.check_object_permissions(request, comment)
+        serializer = CommentSerializer(comment)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        comment = self.get_object(pk)
+        self.check_object_permissions(request, comment)
+        serializer = CommentSerializer(comment, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+
+    def delete(self, request, pk):
+        comment = self.get_object(pk)
+        self.check_object_permissions(request, comment)
+        comment.delete()
+        return Response(
+            {"message": "Comment deleted successfully"},
+            status=status.HTTP_200_OK
         )

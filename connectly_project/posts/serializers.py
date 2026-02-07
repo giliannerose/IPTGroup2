@@ -11,7 +11,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 class PostSerializer(serializers.ModelSerializer):
     comments = serializers.StringRelatedField(many=True, read_only=True)
-
+    author = serializers.ReadOnlyField(source='author.username')
 
     class Meta:
         model = Post
@@ -19,9 +19,13 @@ class PostSerializer(serializers.ModelSerializer):
 
 
 class CommentSerializer(serializers.ModelSerializer):
+    author = serializers.ReadOnlyField(source='author.username')
+
     class Meta:
         model = Comment
         fields = ['id', 'text', 'author', 'post', 'created_at']
+        read_only_fields = ['id', 'author', 'created_at']
+
 
 
     def validate_post(self, value):
