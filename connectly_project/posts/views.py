@@ -15,6 +15,8 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.authtoken.models import Token
 from .singletons.logger_singleton import LoggerSingleton
 from .factories.post_factory import PostFactory
+from .models import Like
+from rest_framework.pagination import PageNumberPagination
 
 logger = LoggerSingleton().get_logger()
 
@@ -279,3 +281,78 @@ class CommentDetail(APIView):
             {"message": "Comment deleted successfully"},
             status=status.HTTP_200_OK
         )
+
+class PostLikeView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            post = Post.objects.get(pk=pk)
+
+            like, created = Like.objects.get_or_create(
+                user=request.user,
+                post=post
+            )
+
+            if not created:
+                return Response(
+                    {"message": "You already liked this post"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            return Response(
+                {"message": "Post liked successfully"},
+                status=status.HTTP_201_CREATED
+            )
+
+        except Post.DoesNotExist:
+            return Response(
+                {"error": "Post not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+            
+class PostCommentView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            post = Post.objects.get(pk=pk)
+
+            comment = Comment.objects.create(
+                text=request.data.get("text"),
+                author=request.user,
+                post=post
+            )
+
+            serializer = CommentSerializer(comment)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except Post.DoesNotExist:
+            return Response(
+                {"error": "Post not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+            
+class PostCommentListView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            post = Post.objects.get(pk=pk)
+            comments = post.comments.all().order_by('-created_at')
+
+            paginator = PageNumberPagination()
+            paginator.page_size = 5
+            result_page = paginator.paginate_queryset(comments, request)
+
+            serializer = CommentSerializer(result_page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        except Post.DoesNotExist:
+            return Response(
+                {"error": "Post not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )

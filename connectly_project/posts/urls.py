@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from .views import PostListCreate, CommentListCreate, PostDetail,  CommentDetail
 from .views import ProtectedView
+from .views import PostLikeView, PostCommentView, PostCommentListView
 
 
 urlpatterns = [
@@ -28,5 +29,15 @@ urlpatterns = [
     
     #protected
     path('protected/', ProtectedView.as_view(), name='protected'),
+    
+    
+    # like
+    path('posts/<int:pk>/like/', PostLikeView.as_view(), name='post-like'),
+
+# comment under post
+    path('posts/<int:pk>/comment/', PostCommentView.as_view(), name='post-comment'),
+
+# get comments per post
+    path('posts/<int:pk>/comments/', PostCommentListView.as_view(), name='post-comments'),  
 
 ]
