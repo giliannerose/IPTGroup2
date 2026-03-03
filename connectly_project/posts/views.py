@@ -17,6 +17,11 @@ from .singletons.logger_singleton import LoggerSingleton
 from .factories.post_factory import PostFactory
 from .models import Like
 from rest_framework.pagination import PageNumberPagination
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from django.conf import settings
+import requests
+from django.conf import settings
 
 logger = LoggerSingleton().get_logger()
 
@@ -355,4 +360,124 @@ class PostCommentListView(APIView):
             return Response(
                 {"error": "Post not found"},
                 status=status.HTTP_404_NOT_FOUND
+            )
+            
+class GoogleLoginView(APIView):
+
+    def post(self, request):
+        token = request.data.get("id_token")
+
+        if not token:
+            return Response(
+                {"error": "No id_token provided"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+    
+            idinfo = id_token.verify_oauth2_token(
+                token,
+                google_requests.Request(),
+                "404307887594-40cvf73hklo2nm48vtjk210fkh54a2md.apps.googleusercontent.com"  
+            )
+
+            email = idinfo.get("email")
+            name = idinfo.get("name")
+
+            if not email:
+                return Response(
+                    {"error": "Google account has no email"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Create or get user
+            user, created = User.objects.get_or_create(
+                email=email,
+                defaults={"username": email.split("@")[0]}
+            )
+
+            token_obj, _ = Token.objects.get_or_create(user=user)
+
+            return Response({
+                "message": "Google login successful",
+                "token": token_obj.key,
+                "email": user.email
+            })
+
+        except ValueError:
+            return Response(
+                {"error": "Invalid or expired Google token"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+           
+                      
+
+
+class GoogleCallbackView(APIView):
+
+    def get(self, request):
+        code = request.GET.get("code")
+
+        if not code:
+            return Response(
+                {"error": "No authorization code provided"},
+                status=400
+            )
+
+        token_url = "https://oauth2.googleapis.com/token"
+
+        data = {
+            "code": code,
+            "client_id": "404307887594-40cvf73hklo2nm48vtjk210fkh54a2md.apps.googleusercontent.com",
+            "client_secret": "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",
+            "redirect_uri": "https://melanie-semiformal-delinda.ngrok-free.dev/posts/auth/google/callback/",
+            "grant_type": "authorization_code",
+        }
+
+        token_response = requests.post(token_url, data=data)
+
+        if token_response.status_code != 200:
+            return Response(
+                {"error": "Failed to obtain token from Google"},
+                status=400
+            )
+
+        token_json = token_response.json()
+        google_id_token = token_json.get("id_token")
+
+        if not google_id_token:
+            return Response(
+                {"error": "No id_token received"},
+                status=400
+            )
+
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as google_requests
+
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                google_id_token,
+                google_requests.Request(),
+                "404307887594-40cvf73hklo2nm48vtjk210fkh54a2md.apps.googleusercontent.com"
+            )
+
+            email = idinfo.get("email")
+
+            user, created = User.objects.get_or_create(
+                email=email,
+                defaults={"username": email.split("@")[0]}
+            )
+
+            token_obj, _ = Token.objects.get_or_create(user=user)
+
+            return Response({
+                "message": "Google login successful",
+                "token": token_obj.key,
+                "email": user.email
+            })
+
+        except ValueError:
+            return Response(
+                {"error": "Invalid ID token"},
+                status=400
             )

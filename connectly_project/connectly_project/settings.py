@@ -25,7 +25,9 @@ SECRET_KEY = 'django-insecure-b^^^4veur=pae)c!3yg#*0+tm3s4g5&4#xqtxq3h3thujjcfv)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [ "127.0.0.1",
+    "localhost",
+    "melanie-semiformal-delinda.ngrok-free.dev",]
 
 
 # Application definition
@@ -127,6 +129,7 @@ CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 PASSWORD_HASHERS = [
     'django.contrib.auth.hashers.Argon2PasswordHasher',
@@ -138,3 +141,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 5,
 }
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://melanie-semiformal-delinda.ngrok-free.dev",
+]

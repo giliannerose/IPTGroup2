@@ -3,6 +3,8 @@ from . import views
 from .views import PostListCreate, CommentListCreate, PostDetail,  CommentDetail
 from .views import ProtectedView
 from .views import PostLikeView, PostCommentView, PostCommentListView
+from .views import GoogleLoginView
+from .views import GoogleCallbackView
 
 
 urlpatterns = [
@@ -39,5 +41,10 @@ urlpatterns = [
 
 # get comments per post
     path('posts/<int:pk>/comments/', PostCommentListView.as_view(), name='post-comments'),  
+    
+# google oauth
+path('auth/google/login/', GoogleLoginView.as_view(), name='google-login'),
+
+path('auth/google/callback/', GoogleCallbackView.as_view(), name='google-callback'),
 
 ]
