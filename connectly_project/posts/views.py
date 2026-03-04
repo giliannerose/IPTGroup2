@@ -404,9 +404,12 @@ class GoogleLoginView(APIView):
                 "email": user.email
             })
 
-        except ValueError:
+        except ValueError as e:
             return Response(
-                {"error": "Invalid or expired Google token"},
+                {
+                    "error": "Invalid or expired Google token",
+                    "details": str(e)
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
            
@@ -438,9 +441,12 @@ class GoogleCallbackView(APIView):
 
         if token_response.status_code != 200:
             return Response(
-                {"error": "Failed to obtain token from Google"},
-                status=400
-            )
+                {
+                    "error": "Google token exchange failed",
+                    "google_response": token_response.json()
+                },
+                status=status.HTTP_400_BAD_REQUEST
+    )
 
         token_json = token_response.json()
         google_id_token = token_json.get("id_token")
@@ -450,6 +456,8 @@ class GoogleCallbackView(APIView):
                 {"error": "No id_token received"},
                 status=400
             )
+            
+    
 
         from google.oauth2 import id_token
         from google.auth.transport import requests as google_requests
