@@ -47,4 +47,6 @@ path('auth/google/login/', GoogleLoginView.as_view(), name='google-login'),
 
 path('auth/google/callback/', GoogleCallbackView.as_view(), name='google-callback'),
 
+# News Feed (HW 7)
+path('feed/', views.NewsFeedView.as_view(), name='news-feed'),
 ]

@@ -22,6 +22,7 @@ from google.auth.transport import requests as google_requests
 from django.conf import settings
 import requests
 from django.conf import settings
+from rest_framework.pagination import PageNumberPagination #For Homework 7
 
 logger = LoggerSingleton().get_logger()
 
@@ -489,3 +490,20 @@ class GoogleCallbackView(APIView):
                 {"error": "Invalid ID token"},
                 status=400
             )
+        
+
+#Homework 7: Building a News Feed
+
+class NewsFeedView(APIView):
+    """Homework 7 - News Feed: posts sorted by newest first with pagination"""
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        posts = Post.objects.all().order_by('-created_at')   
+        
+        paginator = PageNumberPagination()
+        result_page = paginator.paginate_queryset(posts, request)
+
+        serializer = PostSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
