@@ -16,5 +16,4 @@ How AI Was Used:
 
 All final code, logic, architecture decisions, and testing were reviewed, tested, and approved by the team members. AI was used strictly as a learning and troubleshooting tool.
 
-Final Version Branch:
 The latest and complete version of the project is in the milestone-2 branch.
